@@ -1,0 +1,83 @@
+version: "3.8"
+
+services:
+  market-data-handler:
+    build: ../services/market-data-handler
+
+    ports:
+      - "8081:8080"
+
+    networks:
+      - tradeflow
+
+  hft-simulator:
+    build: ../services/hft-simulator
+
+    ports:
+      - "8082:8080"
+
+    networks:
+      - tradeflow
+
+  api-gateway:
+    build: ../services/api-gateway
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      - market-data-handler
+
+      - hft-simulator
+
+    networks:
+      - tradeflow
+
+  frontend:
+    build: ../frontend
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - api-gateway
+
+    networks:
+      - tradeflow
+
+  redis:
+    build: ../infrastructure/redis
+
+    ports:
+      - "6379:6379"
+
+    networks:
+      - tradeflow
+
+  prometheus:
+    build: ../infrastructure/prometheus
+
+    ports:
+      - "9090:9090"
+
+    networks:
+      - tradeflow
+
+  grafana:
+    build: ../infrastructure/grafana
+
+    ports:
+      - "3001:3000"
+
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+    depends_on:
+      - prometheus
+
+    networks:
+      - tradeflow
+
+networks:
+  tradeflow:
+    driver: bridge
