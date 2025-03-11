@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package tradeflow.order;
+
+option java_package = "com.tradeflow.order";
+option java_multiple_files = true;
+
+service OrderService {
+  rpc SubmitOrder (SubmitOrderRequest) returns (SubmitOrderResponse);
+  rpc GetOrderBook (GetOrderBookRequest) returns (GetOrderBookResponse);
+  rpc CancelOrder (CancelOrderRequest) returns (CancelOrderResponse);
+  rpc ModifyOrder (ModifyOrderRequest) returns (ModifyOrderResponse);
+  rpc SubscribeTrades (SubscribeTradesRequest) returns (stream TradeUpdate);
+}
+
+message SubmitOrderRequest {
+  string symbol = 1;
+  string side = 2; // BUY or SELL
+  string type = 3; // LIMIT, MARKET, etc.
+  double price = 4;
+  int32 quantity = 5;
+  string client_id = 6;
+}
+
+message SubmitOrderResponse {
+  string order_id = 1;
+  string status = 2; // ACCEPTED, REJECTED
+  string message = 3;
+}
+
+message GetOrderBookRequest {
+  string symbol = 1;
+}
+
+message GetOrderBookResponse {
+  repeated OrderBookEntry bids = 1;
+  repeated OrderBookEntry asks = 2;
+}
+
+message OrderBookEntry {
+  double price = 1;
+  int32 quantity = 2;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  string client_id = 2;
+}
+
+message CancelOrderResponse {
+  string status = 1;
+  string message = 2;
+}
+
+message ModifyOrderRequest {
+  string order_id = 1;
+  double new_price = 2;
+  int32 new_quantity = 3;
+  string client_id = 4;
+}
+
+message ModifyOrderResponse {
+  string status = 1;
+  string message = 2;
+}
+
+message SubscribeTradesRequest {
+  string symbol = 1;
+}
+
+message TradeUpdate {
+  string buy_order_id = 1;
+  string sell_order_id = 2;
+  double price = 3;
+  int32 quantity = 4;
+  string symbol = 5;
+  string timestamp = 6;
+}

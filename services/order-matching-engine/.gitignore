@@ -1,0 +1,75 @@
+./venv# ===== Build artifacts =====
+# Top-level and nested build dirs
+/build/
+**/build/
+
+# CMake intermediate files
+/CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+
+# Generated protobuf/grpc files usually placed in build/
+**/build/*_pb.*
+**/build/*grpc.pb.*
+
+# Object files, static and shared libs
+*.o
+*.obj
+*.lo
+*.a
+*.la
+*.so
+*.dylib
+
+# Binaries
+*.exe
+*.out
+order-matching-engine
+order_bench
+replay_runner
+
+# ===== Logs / outputs =====
+*.log
+logs/
+# Bench output JSON (keep bench results out of commits)
+**/out/
+
+# ===== IDE / Editor =====
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*~
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+venv/
+env/
+ENV/
+ .env
+
+# ===== Node =====
+node_modules/
+frontend/node_modules/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Coverage / reports =====
+coverage/
+.coverage
+*.gcda
+*.gcno
+lcov.info
+
+# ===== Docker =====
+docker-compose.override.yml
+docker-compose.*.local.yml
+
+# Ignore temporary test harness artifacts
+*.tmp
