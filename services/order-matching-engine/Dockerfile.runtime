@@ -1,0 +1,10 @@
+FROM ubuntu:22.04
+# Install the protobuf runtime library that matches the build environment
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	ca-certificates libstdc++6 libgcc1 libprotobuf23 \
+	libgrpc++1 libgrpc-dev libgrpc++-dev && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+# Expect the host to build the binary at build/order-matching-engine and pass it in the build context
+COPY build/order-matching-engine /app/order-matching-engine
+EXPOSE 50051
+ENTRYPOINT ["/app/order-matching-engine"]
