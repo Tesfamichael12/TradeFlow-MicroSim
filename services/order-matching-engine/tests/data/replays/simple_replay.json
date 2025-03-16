@@ -1,0 +1,9 @@
+{
+  "events": [
+    { "type": "add", "id": 1, "is_buy": true, "qty": 100, "price": 1000 },
+    { "type": "add", "id": 2, "is_buy": false, "qty": 50, "price": 1000 },
+    { "type": "match" },
+    { "type": "add", "id": 3, "is_buy": false, "qty": 50, "price": 1000 },
+    { "type": "match" }
+  ]
+}
