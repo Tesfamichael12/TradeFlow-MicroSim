@@ -228,7 +228,7 @@ Test Client Finished
 
 ```bash
 # Clone repo
-git clone <your-repo-url>
+git clone https://github.com/Tesfamichael12
 cd warpspeed_hft_simulator
 
 # Configure
