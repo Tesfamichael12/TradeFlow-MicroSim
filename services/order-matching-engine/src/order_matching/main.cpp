@@ -12,12 +12,13 @@
 #include <condition_variable>
 #include <deque>
 #include <algorithm>
+#include <chrono>
 
 using namespace std;
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
-using grpc::ServerReaderWriter;
+using grpc::ServerWriter;
 using grpc::Status;
 
 namespace tradeflow {
@@ -32,62 +33,62 @@ double priceToDouble(Price price) {
     return static_cast<double>(price) / TICK_SIZE;
 }
 
+// Global variables for order books and subscribers
+unordered_map<string, unique_ptr<OrderBook>> order_books_;
+unordered_map<string, unique_ptr<Matcher>> matchers_;
+mutex order_books_mutex_;
+OrderId next_order_id_ = 1;
+mutex id_mutex_;
+
+// For streaming trades: per-subscriber queue + condition variable
+struct Subscriber {
+    mutex m;
+    condition_variable cv;
+    deque<tradeflow::order::TradeUpdate> q;
+    bool active = true;
+};
+
+unordered_map<string, vector<shared_ptr<Subscriber>>> trade_subscribers_;
+mutex subscribers_mutex_;
+
+void publishTrade(const Trade& trade) {
+    tradeflow::order::TradeUpdate update;
+    update.set_buy_order_id(to_string(trade.buy_order_id));
+    update.set_sell_order_id(to_string(trade.sell_order_id));
+    update.set_price(priceToDouble(trade.price));
+    update.set_quantity(trade.quantity);
+    update.set_symbol(trade.symbol);
+    auto time_t = chrono::system_clock::to_time_t(trade.timestamp);
+    update.set_timestamp(ctime(&time_t));
+
+    lock_guard<mutex> lock(subscribers_mutex_);
+    auto it = trade_subscribers_.find(trade.symbol);
+    if (it != trade_subscribers_.end()) {
+        for (auto& sub : it->second) {
+            lock_guard<mutex> lk(sub->m);
+            sub->q.push_back(update);
+            sub->cv.notify_one();
+        }
+    }
+}
+
+OrderBook& getOrderBook(const string& symbol) {
+    lock_guard<mutex> lock(order_books_mutex_);
+    if (order_books_.find(symbol) == order_books_.end()) {
+        order_books_[symbol] = make_unique<OrderBook>(symbol, MatchingMode::PRICE_TIME_PRIORITY);
+        matchers_[symbol] = make_unique<Matcher>();
+        order_books_[symbol]->setTradeCallback([&](const Trade& trade) { publishTrade(trade); });
+        order_books_[symbol]->setTradeLog(make_unique<TradeLog>(symbol + "_trades.log"));
+    }
+    return *order_books_[symbol];
+}
+
+OrderId getNextOrderId() {
+    lock_guard<mutex> lock(id_mutex_);
+    return next_order_id_++;
+}
+
 class OrderServiceImpl final : public tradeflow::order::OrderService::Service {
-private:
-    unordered_map<string, unique_ptr<OrderBook>> order_books_;
-    unordered_map<string, unique_ptr<Matcher>> matchers_;
-    mutex order_books_mutex_;
-    OrderId next_order_id_ = 1;
-    mutex id_mutex_;
-
-    // For streaming trades: per-subscriber queue + condition variable
-    struct Subscriber {
-        mutex m;
-        condition_variable cv;
-        deque<tradeflow::order::TradeUpdate> q;
-        bool active = true;
-    };
-
-    unordered_map<string, vector<shared_ptr<Subscriber>>> trade_subscribers_;
-    mutex subscribers_mutex_;
-
-    void publishTrade(const Trade& trade) {
-        tradeflow::order::TradeUpdate update;
-        update.set_buy_order_id(to_string(trade.buy_order_id));
-        update.set_sell_order_id(to_string(trade.sell_order_id));
-        update.set_price(priceToDouble(trade.price));
-        update.set_quantity(trade.quantity);
-        update.set_symbol(trade.symbol);
-        auto time_t = chrono::system_clock::to_time_t(trade.timestamp);
-        update.set_timestamp(ctime(&time_t));
-
-        lock_guard<mutex> lock(subscribers_mutex_);
-        auto it = trade_subscribers_.find(trade.symbol);
-        if (it != trade_subscribers_.end()) {
-            for (auto& sub : it->second) {
-                lock_guard<mutex> lk(sub->m);
-                sub->q.push_back(update);
-                sub->cv.notify_one();
-            }
-        }
-    }
-
-    OrderBook& getOrderBook(const string& symbol) {
-        lock_guard<mutex> lock(order_books_mutex_);
-        if (order_books_.find(symbol) == order_books_.end()) {
-            order_books_[symbol] = make_unique<OrderBook>(symbol, MatchingMode::PRICE_TIME_PRIORITY);
-            matchers_[symbol] = make_unique<Matcher>();
-            order_books_[symbol]->setTradeCallback([this](const Trade& trade) { publishTrade(trade); });
-            order_books_[symbol]->setTradeLog(make_unique<TradeLog>(symbol + "_trades.log"));
-        }
-        return *order_books_[symbol];
-    }
-
-    OrderId getNextOrderId() {
-        lock_guard<mutex> lock(id_mutex_);
-        return next_order_id_++;
-    }
-
 public:
     Status SubmitOrder(ServerContext* context, const tradeflow::order::SubmitOrderRequest* request,
                        tradeflow::order::SubmitOrderResponse* response) override {
@@ -214,7 +215,7 @@ public:
     }
 
     Status SubscribeTrades(ServerContext* context, const tradeflow::order::SubscribeTradesRequest* request,
-                           grpc::ServerWriter<tradeflow::order::TradeUpdate>* writer) override {
+                           ServerWriter<tradeflow::order::TradeUpdate>* writer) override {
         auto sub = make_shared<Subscriber>();
         {
             lock_guard<mutex> lock(subscribers_mutex_);
@@ -248,9 +249,11 @@ public:
     }
 };
 
+} // namespace tradeflow
+
 void RunServer() {
     string server_address("0.0.0.0:50051");
-    OrderServiceImpl service;
+    tradeflow::OrderServiceImpl service;
 
     ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -262,9 +265,7 @@ void RunServer() {
     server->Wait();
 }
 
-} // namespace tradeflow
-
 int main(int argc, char** argv) {
-    tradeflow::RunServer();
+    RunServer();
     return 0;
 }
