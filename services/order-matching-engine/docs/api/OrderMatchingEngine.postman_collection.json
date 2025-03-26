@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "Order Matching Engine",
+    "_postman_id": "order-matching-engine-collection",
+    "description": "Postman collection for Order Matching Engine gateway endpoints (HTTP->gRPC via API Gateway).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Submit Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"symbol\": \"AAPL\",\n  \"side\": \"BUY\",\n  \"type\": \"LIMIT\",\n  \"price\": 150.25,\n  \"quantity\": 100,\n  \"client_id\": \"client-123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/v1/orders",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["v1", "orders"]
+        }
+      }
+    },
+    {
+      "name": "Get OrderBook",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:8080/v1/orderbook/AAPL",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["v1", "orderbook", "AAPL"]
+        }
+      }
+    },
+    {
+      "name": "Cancel Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"client_id\": \"client-123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/v1/orders/o-123:cancel",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["v1", "orders", "o-123:cancel"]
+        }
+      }
+    },
+    {
+      "name": "Modify Order",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"new_price\": 151.0,\n  \"new_quantity\": 50,\n  \"client_id\": \"client-123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/v1/orders/o-123",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["v1", "orders", "o-123"]
+        }
+      }
+    }
+  ]
+}
