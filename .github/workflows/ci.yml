@@ -14,7 +14,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libprotobuf-dev protobuf-compiler libgrpc++-dev
+          sudo apt-get install -y build-essential cmake libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libgrpc-dev
       - name: Configure
         run: cmake -S services/order-matching-engine -B services/order-matching-engine/build
       - name: Build

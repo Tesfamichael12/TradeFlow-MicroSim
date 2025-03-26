@@ -26,7 +26,7 @@ if(NOT PROTOC_EXECUTABLE)
 endif()
 
 if(NOT GRPC_CPP_PLUGIN_EXECUTABLE)
-    message(WARNING "grpc_cpp_plugin not found. gRPC C++ plugin missing; grpc sources may not be generated.")
+    message(FATAL_ERROR "grpc_cpp_plugin not found. Please install protobuf-compiler-grpc package.")
 endif()
 
 add_custom_command(
@@ -36,18 +36,12 @@ add_custom_command(
     COMMENT "Generating protobuf C++ sources"
 )
 
-if(GRPC_CPP_PLUGIN_EXECUTABLE)
-    add_custom_command(
-        OUTPUT ${GENERATED_GRPC_SRC} ${GENERATED_GRPC_HDR}
-        COMMAND ${PROTOC_EXECUTABLE} --grpc_out=${CMAKE_CURRENT_BINARY_DIR} --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN_EXECUTABLE} -I ${CMAKE_CURRENT_SOURCE_DIR}/proto ${PROTO_FILE}
-        DEPENDS ${PROTO_FILE}
-        COMMENT "Generating gRPC C++ sources"
-    )
-else()
-    # Fallback: create empty files to avoid build break; user should install grpc_cpp_plugin
-    file(WRITE ${GENERATED_GRPC_SRC} "// missing grpc_cpp_plugin; please install grpc tools to generate this file\n")
-    file(WRITE ${GENERATED_GRPC_HDR} "// missing grpc_cpp_plugin; please install grpc tools to generate this file\n")
-endif()
+add_custom_command(
+    OUTPUT ${GENERATED_GRPC_SRC} ${GENERATED_GRPC_HDR}
+    COMMAND ${PROTOC_EXECUTABLE} --grpc_out=${CMAKE_CURRENT_BINARY_DIR} --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN_EXECUTABLE} -I ${CMAKE_CURRENT_SOURCE_DIR}/proto ${PROTO_FILE}
+    DEPENDS ${PROTO_FILE}
+    COMMENT "Generating gRPC C++ sources"
+)
 
 set(PROTO_SRCS ${GENERATED_PROTO_SRC} ${GENERATED_GRPC_SRC})
 set(PROTO_HDRS ${GENERATED_PROTO_HDR} ${GENERATED_GRPC_HDR})
@@ -59,7 +53,7 @@ set(SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/order_matching/main.cpp
 )
 
-add_executable(order-matching-engine ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
+add_executable(order-matching-engine ${SOURCES} ${PROTO_SRCS})
 
 # Try to find system libraries for gRPC; fall back to linking against -lgrpc++ -lgrpc
 find_library(GRPCPP_LIB NAMES grpc++ PATHS /usr/lib /usr/local/lib)
