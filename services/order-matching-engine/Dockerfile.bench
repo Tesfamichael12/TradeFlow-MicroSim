@@ -1,0 +1,40 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential cmake git pkg-config ca-certificates wget curl unzip \
+       libprotobuf-dev protobuf-compiler \
+       libssl-dev libz-dev autoconf automake libtool \
+       libgrpc++-dev libgrpc-dev \
+       nlohmann-json3-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
+
+# Create workspace and out dir
+WORKDIR /workspace
+RUN mkdir -p /workspace/out /workspace/third_party
+
+# Build and install GoogleTest from source (so CMake finds gtest)
+RUN cd /workspace/third_party \
+    && git clone --depth 1 https://github.com/google/googletest.git \
+    && cmake -S googletest -B googletest-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+    && cmake --build googletest-build -j"$(nproc)" \
+    && cmake --install googletest-build
+
+# Build and install Google Benchmark from source (disable GTest-backed tests)
+RUN cd /workspace/third_party \
+    && git clone --depth 1 https://github.com/google/benchmark.git \
+    && cmake -S benchmark -B benchmark-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DBENCHMARK_ENABLE_GTEST_TESTS=OFF -DBENCHMARK_USE_BUNDLED_GOOGLETEST=OFF \
+    && cmake --build benchmark-build -j"$(nproc)" \
+    && cmake --install benchmark-build
+
+# Copy source into the container (build context should be services/order-matching-engine)
+COPY . /workspace
+
+# Make the entrypoint script executable
+COPY bench_entrypoint.sh /usr/local/bin/bench_entrypoint.sh
+RUN chmod +x /usr/local/bin/bench_entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/bench_entrypoint.sh"]
