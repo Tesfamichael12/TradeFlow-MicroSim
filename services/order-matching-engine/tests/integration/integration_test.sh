@@ -6,14 +6,15 @@ set -euo pipefail
 # then stops the server and exits with non-zero on failure.
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+TESTS_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
 
 if [[ -n "${ORDER_MATCHING_ENGINE_BIN:-}" ]]; then
   BIN="${ORDER_MATCHING_ENGINE_BIN}"
 else
-  BIN="$ROOT_DIR/build/order-matching-engine"
+  BIN="$PROJECT_ROOT/build/order-matching-engine"
   if [[ ! -x "$BIN" ]]; then
-    BIN="$PROJECT_ROOT/build/order-matching-engine"
+    BIN="$TESTS_ROOT/build/order-matching-engine"
   fi
 fi
 CLIENT="$ROOT_DIR/test_client.py"
@@ -50,7 +51,7 @@ if ! python3 -c "import grpc" >/dev/null 2>&1; then
 fi
 
 echo "Running Python client..."
-PYTHONPATH="$PROJECT_ROOT:${PYTHONPATH:-}"
+PYTHONPATH="$PROJECT_ROOT:$PROJECT_ROOT/build:$TESTS_ROOT:${PYTHONPATH:-}"
 export PYTHONPATH
 OUTPUT=$(python3 "$CLIENT" || true)
 echo "$OUTPUT"
