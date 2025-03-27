@@ -6,7 +6,16 @@ set -euo pipefail
 # then stops the server and exits with non-zero on failure.
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BIN="$ROOT_DIR/build/order-matching-engine"
+PROJECT_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
+
+if [[ -n "${ORDER_MATCHING_ENGINE_BIN:-}" ]]; then
+  BIN="${ORDER_MATCHING_ENGINE_BIN}"
+else
+  BIN="$ROOT_DIR/build/order-matching-engine"
+  if [[ ! -x "$BIN" ]]; then
+    BIN="$PROJECT_ROOT/build/order-matching-engine"
+  fi
+fi
 CLIENT="$ROOT_DIR/test_client.py"
 LOGFILE="$ROOT_DIR/server.test.log"
 PIDFILE="$ROOT_DIR/server.test.pid"
@@ -31,6 +40,8 @@ if ! ss -ltnp | grep -q ":50051"; then
 fi
 
 echo "Running Python client..."
+PYTHONPATH="$PROJECT_ROOT:${PYTHONPATH:-}"
+export PYTHONPATH
 OUTPUT=$(python3 "$CLIENT" || true)
 echo "$OUTPUT"
 

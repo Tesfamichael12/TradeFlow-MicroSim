@@ -108,12 +108,16 @@ enable_testing()
 # Integration test target: builds the binary then runs the integration script
 add_custom_target(integration-test
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target order-matching-engine -- -j${CMAKE_BUILD_PARALLEL_LEVEL}
-    COMMAND ${CMAKE_COMMAND} -E env "PYTHONUNBUFFERED=1" bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/integration_test.sh
+    COMMAND ${CMAKE_COMMAND} -E env "PYTHONUNBUFFERED=1" "ORDER_MATCHING_ENGINE_BIN=$<TARGET_FILE:order-matching-engine>" bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/integration_test.sh
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     DEPENDS order-matching-engine
 )
 
 add_test(NAME integration_test COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration/integration_test.sh)
+set_tests_properties(integration_test PROPERTIES
+    ENVIRONMENT "PYTHONUNBUFFERED=1;ORDER_MATCHING_ENGINE_BIN=$<TARGET_FILE:order-matching-engine>"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration
+)
 
 ## GoogleTest setup for unit tests - prefer system package, otherwise FetchContent
 find_package(GTest QUIET)
