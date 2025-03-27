@@ -58,13 +58,15 @@ add_executable(order-matching-engine ${SOURCES} ${PROTO_SRCS})
 # Try to find system libraries for gRPC; fall back to linking against -lgrpc++ -lgrpc
 find_library(GRPCPP_LIB NAMES grpc++ PATHS /usr/lib /usr/local/lib)
 find_library(GRPC_LIB NAMES grpc PATHS /usr/lib /usr/local/lib)
+find_library(GPR_LIB NAMES gpr PATHS /usr/lib /usr/local/lib)
 
-if(GRPCPP_LIB AND GRPC_LIB)
-    message(STATUS "Found gRPC libraries: ${GRPCPP_LIB}; ${GRPC_LIB}")
+if(GRPCPP_LIB AND GRPC_LIB AND GPR_LIB)
+    message(STATUS "Found gRPC libraries: ${GRPCPP_LIB}; ${GRPC_LIB}; ${GPR_LIB}")
     target_link_libraries(order-matching-engine
         ${PROTOBUF_LIBRARIES}
         ${GRPCPP_LIB}
         ${GRPC_LIB}
+        ${GPR_LIB}
     )
 else()
     message(STATUS "gRPC CMake config not found; linking with grpc++ and grpc from system libs")
@@ -72,6 +74,7 @@ else()
         ${PROTOBUF_LIBRARIES}
         grpc++
         grpc
+        gpr
     )
 endif()
 
