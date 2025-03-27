@@ -39,6 +39,16 @@ if ! ss -ltnp | grep -q ":50051"; then
   exit 3
 fi
 
+if ! python3 -c "import grpc" >/dev/null 2>&1; then
+  echo "Installing Python grpc dependency..."
+  if ! python3 -m pip --version >/dev/null 2>&1; then
+    echo "pip is required to install grpc for Python"
+    kill "$(cat $PIDFILE)" || true
+    exit 6
+  fi
+  python3 -m pip install --user --quiet grpcio grpcio-tools
+fi
+
 echo "Running Python client..."
 PYTHONPATH="$PROJECT_ROOT:${PYTHONPATH:-}"
 export PYTHONPATH
