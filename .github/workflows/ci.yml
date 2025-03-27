@@ -27,12 +27,25 @@ jobs:
           python3 scripts/parse_bench.py services/order-matching-engine/bench/results.json
       - name: Run memory leak tests with valgrind
         run: |
-          valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind_output.txt ./services/order-matching-engine/build/OrderBook_test
-          echo "Valgrind memory leak test completed. Checking for leaks..."
-          if grep -q "definitely lost: 0 bytes" valgrind_output.txt; then
+          set -euo pipefail
+          valgrind \
+            --tool=memcheck \
+            --leak-check=full \
+            --show-leak-kinds=all \
+            --track-origins=yes \
+            --errors-for-leak-kinds=definite \
+            --error-exitcode=99 \
+            --log-file=valgrind_output.txt \
+            ./services/order-matching-engine/build/OrderBook_test || {
+              echo "Valgrind reported memory errors or leaks:"
+              cat valgrind_output.txt
+              exit 1
+            }
+          if grep -q "All heap blocks were freed -- no leaks are possible" valgrind_output.txt || \
+             grep -q "in use at exit: 0 bytes" valgrind_output.txt; then
             echo "No memory leaks detected"
           else
-            echo "Memory leaks detected:"
-            grep -A 5 -B 5 "definitely lost" valgrind_output.txt
+            echo "Unable to confirm leak-free run from valgrind log:"
+            tail -n 50 valgrind_output.txt
             exit 1
           fi

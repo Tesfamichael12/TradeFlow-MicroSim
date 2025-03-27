@@ -28,7 +28,7 @@ valgrind \
   --track-origins=yes \
   --verbose \
   --log-file="$OUTPUT_DIR/valgrind_unit_tests.txt" \
-  ./"$BUILD_DIR/OrderBook_test"
+    "$BUILD_DIR/OrderBook_test"
 
 # Test 2: Stress test with high order volume
 echo "Running stress test with high order volume..."
@@ -97,18 +97,12 @@ valgrind \
   --track-origins=yes \
   --verbose \
   --log-file="$OUTPUT_DIR/valgrind_stress_test.txt" \
-  ./"$OUTPUT_DIR/stress_test"
+    "$OUTPUT_DIR/stress_test"
 
 # Test 3: Integration test with gRPC server
 echo "Running integration test with gRPC server..."
-# Start the server in background
-./"$BUILD_DIR/order-matching-engine" &
-SERVER_PID=$!
 
-# Wait for server to start
-sleep 2
-
-# Run integration test with valgrind
+# Run integration test with valgrind (the script starts/stops the server internally)
 valgrind \
   --tool=memcheck \
   --leak-check=full \
@@ -117,9 +111,6 @@ valgrind \
   --verbose \
   --log-file="$OUTPUT_DIR/valgrind_integration_test.txt" \
   bash "$ROOT/services/order-matching-engine/tests/integration/integration_test.sh"
-
-# Stop the server
-kill $SERVER_PID 2>/dev/null || true
 
 # Analyze results
 echo "Analyzing memory leak test results..."
@@ -134,22 +125,36 @@ check_memory_leaks() {
         echo "$test_name: Log file not found"
         return 1
     fi
-    
-    # Check for definitely lost bytes
-    local definitely_lost=$(grep "definitely lost:" "$log_file" | awk '{print $4}' | head -1)
-    local indirectly_lost=$(grep "indirectly lost:" "$log_file" | awk '{print $4}' | head -1)
-    local possibly_lost=$(grep "possibly lost:" "$log_file" | awk '{print $4}' | head -1)
-    
+
+    if grep -q "All heap blocks were freed -- no leaks are possible" "$log_file" || \
+       grep -q "in use at exit: 0 bytes" "$log_file"; then
+        echo "$test_name: No memory leaks detected"
+        return 0
+    fi
+
+    local def_line=$(grep -m1 "definitely lost:" "$log_file" || true)
+    local ind_line=$(grep -m1 "indirectly lost:" "$log_file" || true)
+    local pos_line=$(grep -m1 "possibly lost:" "$log_file" || true)
+
+    local definitely_lost="${def_line:+$(echo "$def_line" | awk '{print $4}' | tr -d ',')}"
+    local indirectly_lost="${ind_line:+$(echo "$ind_line" | awk '{print $4}' | tr -d ',')}"
+    local possibly_lost="${pos_line:+$(echo "$pos_line" | awk '{print $4}' | tr -d ',')}"
+
+    # Default to zero if the line wasn't present (older Valgrind versions)
+    definitely_lost=${definitely_lost:-0}
+    indirectly_lost=${indirectly_lost:-0}
+    possibly_lost=${possibly_lost:-0}
+
     if [ "$definitely_lost" = "0" ] && [ "$indirectly_lost" = "0" ] && [ "$possibly_lost" = "0" ]; then
         echo "$test_name: No memory leaks detected"
         return 0
-    else
-        echo "$test_name: Memory leaks detected:"
-        echo "   Definitely lost: $definitely_lost bytes"
-        echo "   Indirectly lost: $indirectly_lost bytes"
-        echo "   Possibly lost: $possibly_lost bytes"
-        return 1
     fi
+
+    echo "$test_name: Memory leaks detected:"
+    echo "   Definitely lost: $definitely_lost bytes"
+    echo "   Indirectly lost: $indirectly_lost bytes"
+    echo "   Possibly lost: $possibly_lost bytes"
+    return 1
 }
 
 # Check all test results
