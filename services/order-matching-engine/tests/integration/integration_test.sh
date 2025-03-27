@@ -77,4 +77,13 @@ echo "Integration test passed"
 kill "$(cat $PIDFILE)" || true
 rm -f "$PIDFILE"
 
+# Ensure benchmark binary is available for downstream CI steps
+if [[ ! -x "$PROJECT_ROOT/build/order_bench" ]]; then
+  echo "Building benchmark binary..."
+  cmake --build "$PROJECT_ROOT/build" --target order_bench -- -j"${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
+fi
+
+# Create benchmark results directory if it doesn't exist
+mkdir -p "$PROJECT_ROOT/bench"
+
 exit 0

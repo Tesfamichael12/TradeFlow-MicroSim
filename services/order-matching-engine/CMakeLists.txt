@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 
 project(OrderMatchingEngine)
 
@@ -144,7 +144,7 @@ find_package(benchmark QUIET)
 find_package(nlohmann_json QUIET)
 
 if(NOT benchmark)
-    message(WARNING "Google Benchmark not found. Benchmarks will be skipped. Install libbenchmark-dev or the benchmark CMake package to enable benchmarks.")
+    message(STATUS "Google Benchmark not found via package; attempting manual discovery or FetchContent")
 endif()
 
 if(NOT nlohmann_json)
@@ -181,6 +181,26 @@ if(NOT benchmark)
         endif()
         set(benchmark TRUE)
     endif()
+endif()
+
+if(NOT benchmark)
+    message(STATUS "Fetching Google Benchmark via FetchContent")
+    include(FetchContent)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(googlebenchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.8.3
+    )
+    FetchContent_MakeAvailable(googlebenchmark)
+    if(TARGET benchmark::benchmark)
+        set(benchmark TRUE)
+    endif()
+endif()
+
+if(NOT benchmark)
+    message(WARNING "Google Benchmark could not be located or fetched; benchmarks will be skipped. Install libbenchmark-dev or ensure network access for FetchContent.")
 endif()
 
 if(benchmark)
