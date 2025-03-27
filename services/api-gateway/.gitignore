@@ -33,3 +33,6 @@ logs/
 *.temp
 *.bak
 *.backup
+
+# ===== Generated sources =====
+src/main/java/com/tradeflow/order/
