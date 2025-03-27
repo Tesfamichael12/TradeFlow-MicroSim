@@ -55,28 +55,50 @@ set(SOURCES
 
 add_executable(order-matching-engine ${SOURCES} ${PROTO_SRCS})
 
-# Try to find system libraries for gRPC; fall back to linking against -lgrpc++ -lgrpc
-find_library(GRPCPP_LIB NAMES grpc++ PATHS /usr/lib /usr/local/lib)
-find_library(GRPC_LIB NAMES grpc PATHS /usr/lib /usr/local/lib)
-find_library(GPR_LIB NAMES gpr PATHS /usr/lib /usr/local/lib)
-
-if(GRPCPP_LIB AND GRPC_LIB AND GPR_LIB)
-    message(STATUS "Found gRPC libraries: ${GRPCPP_LIB}; ${GRPC_LIB}; ${GPR_LIB}")
-    target_link_libraries(order-matching-engine
-        ${PROTOBUF_LIBRARIES}
-        ${GRPCPP_LIB}
-        ${GRPC_LIB}
-        ${GPR_LIB}
-    )
+# Link against gRPC (prefer CMake package, then pkg-config, finally manual libs)
+find_package(gRPC CONFIG QUIET)
+if(gRPC_FOUND)
+    message(STATUS "Using gRPC CMake package: linking with gRPC::grpc++")
+    set(GRPC_LINK_LIBS gRPC::grpc++)
 else()
-    message(STATUS "gRPC CMake config not found; linking with grpc++ and grpc from system libs")
-    target_link_libraries(order-matching-engine
-        ${PROTOBUF_LIBRARIES}
-        grpc++
-        grpc
-        gpr
-    )
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(GRPCPP IMPORTED_TARGET QUIET grpc++)
+    endif()
+    if(TARGET PkgConfig::GRPCPP)
+        message(STATUS "Using pkg-config for grpc++")
+        set(GRPC_LINK_LIBS PkgConfig::GRPCPP)
+    else()
+        message(STATUS "gRPC CMake config/pkg-config not found; falling back to manual library lookup")
+        find_library(GRPCPP_LIB NAMES grpc++ PATHS /usr/lib /usr/local/lib)
+        find_library(GRPC_LIB NAMES grpc PATHS /usr/lib /usr/local/lib)
+        find_library(GPR_LIB NAMES gpr PATHS /usr/lib /usr/local/lib)
+        if(NOT GRPCPP_LIB OR NOT GRPC_LIB)
+            message(FATAL_ERROR "Unable to locate grpc++/grpc libraries. Install libgrpc-dev or provide gRPC CMake package.")
+        endif()
+        set(GRPC_LINK_LIBS ${GRPCPP_LIB} ${GRPC_LIB})
+        if(GPR_LIB)
+            list(APPEND GRPC_LINK_LIBS ${GPR_LIB})
+        endif()
+        foreach(_absl_libname IN ITEMS absl_synchronization absl_time absl_strings absl_base absl_status absl_int128 absl_hash absl_cord)
+            find_library(_absl_lib NAMES ${_absl_libname} PATHS /usr/lib /usr/local/lib)
+            if(_absl_lib)
+                list(APPEND GRPC_LINK_LIBS ${_absl_lib})
+            endif()
+        endforeach()
+    endif()
 endif()
+
+set(PROTOBUF_LINK_LIB ${PROTOBUF_LIBRARIES})
+if(TARGET protobuf::libprotobuf)
+    set(PROTOBUF_LINK_LIB protobuf::libprotobuf)
+endif()
+
+target_link_libraries(order-matching-engine
+    PRIVATE
+        ${PROTOBUF_LINK_LIB}
+        ${GRPC_LINK_LIBS}
+)
 
 target_include_directories(order-matching-engine PRIVATE ${Protobuf_INCLUDE_DIRS})
 target_include_directories(order-matching-engine PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
