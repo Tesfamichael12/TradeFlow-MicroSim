@@ -83,6 +83,12 @@ if [[ ! -x "$PROJECT_ROOT/build/order_bench" ]]; then
   cmake --build "$PROJECT_ROOT/build" --target order_bench -- -j"${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
 fi
 
+# Ensure unit test binary exists for valgrind leak checks
+if [[ ! -x "$PROJECT_ROOT/build/OrderBook_test" ]]; then
+  echo "Building OrderBook_test binary..."
+  cmake --build "$PROJECT_ROOT/build" --target OrderBook_test -- -j"${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
+fi
+
 # Create benchmark results directory if it doesn't exist
 mkdir -p "$PROJECT_ROOT/bench"
 
