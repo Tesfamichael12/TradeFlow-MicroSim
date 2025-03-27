@@ -14,7 +14,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libgrpc-dev
+          sudo apt-get install -y build-essential cmake libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libgrpc-dev valgrind
       - name: Configure
         run: cmake -S services/order-matching-engine -B services/order-matching-engine/build
       - name: Build
@@ -25,3 +25,14 @@ jobs:
         run: |
           ./services/order-matching-engine/build/order_bench --benchmark_repetitions=2 --benchmark_out=services/order-matching-engine/bench/results.json --benchmark_out_format=json
           python3 scripts/parse_bench.py services/order-matching-engine/bench/results.json
+      - name: Run memory leak tests with valgrind
+        run: |
+          valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind_output.txt ./services/order-matching-engine/build/OrderBook_test
+          echo "Valgrind memory leak test completed. Checking for leaks..."
+          if grep -q "definitely lost: 0 bytes" valgrind_output.txt; then
+            echo "No memory leaks detected"
+          else
+            echo "Memory leaks detected:"
+            grep -A 5 -B 5 "definitely lost" valgrind_output.txt
+            exit 1
+          fi
