@@ -15,6 +15,7 @@ services:
 
     ports:
       - "50051:50051"
+      - "9464:9464"
 
     networks:
       - tradeflow

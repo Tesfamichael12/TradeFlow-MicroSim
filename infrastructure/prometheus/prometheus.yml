@@ -2,17 +2,14 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: "market-data-handler"
+  - job_name: "order-matching-engine"
 
     static_configs:
-      - targets: ["market-data-handler:8080"]
-
-  - job_name: "hft-simulator"
-
-    static_configs:
-      - targets: ["hft-simulator:8080"]
+      - targets: ["order-matching-engine:9464"]
 
   - job_name: "api-gateway"
+
+    metrics_path: "/actuator/prometheus"
 
     static_configs:
       - targets: ["api-gateway:8080"]

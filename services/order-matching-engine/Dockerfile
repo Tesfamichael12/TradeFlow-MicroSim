@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=builder /work/build/order-matching-engine /app/order-matching-engine
 
-EXPOSE 50051
+EXPOSE 50051 9464
 ENTRYPOINT ["/app/order-matching-engine"]
 FROM ubuntu:22.04
 
@@ -49,6 +49,6 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 # Build the project
 RUN cmake . && make -j$(nproc)
 
-EXPOSE 50051
+EXPOSE 50051 9464
 
 CMD ["/app/order-matching-engine"]

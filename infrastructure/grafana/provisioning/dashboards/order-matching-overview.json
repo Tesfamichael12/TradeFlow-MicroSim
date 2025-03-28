@@ -1,0 +1,75 @@
+{
+  "id": null,
+  "uid": "tradeflow-order-matching",
+  "title": "Order Matching Engine Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Submit Requests",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "tradeflow_order_service_submit_requests_total",
+          "legendFormat": "requests",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Trades Executed",
+      "id": 2,
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "tradeflow_order_service_trade_updates_total",
+          "legendFormat": "trades",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Submit Duration (p50/p95)",
+      "id": 3,
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(tradeflow_gateway_submit_order_duration_seconds_sum[1m]) / rate(tradeflow_gateway_submit_order_duration_seconds_count[1m])",
+          "legendFormat": "avg duration",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Cancel Success vs Not Found",
+      "id": 4,
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "increase(tradeflow_order_service_cancel_success_total[5m])",
+          "legendFormat": "success",
+          "refId": "A"
+        },
+        {
+          "expr": "increase(tradeflow_order_service_cancel_not_found_total[5m])",
+          "legendFormat": "not found",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      }
+    }
+  ],
+  "templating": { "list": [] }
+}
