@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feature/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libprotobuf-dev protobuf-compiler libgrpc++-dev
+      - name: Configure
+        run: cmake -S services/order-matching-engine -B services/order-matching-engine/build
+      - name: Build
+        run: cmake --build services/order-matching-engine/build -- -j
+      - name: Run unit tests
+        run: ctest --test-dir services/order-matching-engine/build --output-on-failure
+      - name: Run benchmarks
+        run: |
+          ./services/order-matching-engine/build/order_bench --benchmark_repetitions=2 --benchmark_out=services/order-matching-engine/bench/results.json --benchmark_out_format=json
+          python3 scripts/parse_bench.py services/order-matching-engine/bench/results.json
