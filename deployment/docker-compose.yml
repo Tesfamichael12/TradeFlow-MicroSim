@@ -10,11 +10,11 @@ services:
     networks:
       - tradeflow
 
-  hft-simulator:
-    build: ../services/hft-simulator
+  order-matching-engine:
+    build: ../services/order-matching-engine
 
     ports:
-      - "8082:8080"
+      - "50051:50051"
 
     networks:
       - tradeflow
@@ -27,8 +27,8 @@ services:
 
     depends_on:
       - market-data-handler
-
       - hft-simulator
+      - order-matching-engine
 
     networks:
       - tradeflow

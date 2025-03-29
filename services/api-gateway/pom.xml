@@ -11,49 +11,132 @@
   <packaging>jar</packaging>
 
   <properties>
-
     <maven.compiler.source>11</maven.compiler.source>
-
     <maven.compiler.target>11</maven.compiler.target>
-
+    <!-- Protobuf / gRPC versions -->
+    <protobuf.version>3.21.12</protobuf.version>
+    <grpc.version>1.56.0</grpc.version>
   </properties>
 
   <parent>
-
     <groupId>org.springframework.boot</groupId>
-
     <artifactId>spring-boot-starter-parent</artifactId>
-
     <version>2.5.0</version>
-
   </parent>
 
   <dependencies>
-
     <dependency>
-
       <groupId>org.springframework.boot</groupId>
-
       <artifactId>spring-boot-starter-web</artifactId>
-
     </dependency>
 
+    <!-- gRPC / Protobuf client dependencies -->
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty-shaded</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
-
     <plugins>
-
+      <!-- Spring Boot plugin -->
       <plugin>
-
         <groupId>org.springframework.boot</groupId>
-
         <artifactId>spring-boot-maven-plugin</artifactId>
-
       </plugin>
 
-    </plugins>
+      <!-- Compiler plugin explicit configuration -->
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+        </configuration>
+      </plugin>
 
+      <!-- protobuf / gRPC code generation for Java stubs -->
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.6.1</version>
+        <configuration>
+          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+        </configuration>
+        <executions>
+          <execution>
+            <id>compile</id>
+            <goals>
+              <goal>compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
+            <configuration>
+              <!-- Point the plugin at the proto files in the sibling order-matching-engine service -->
+              <protoPathElements>
+                <protoPathElement>${project.basedir}/../order-matching-engine/proto</protoPathElement>
+              </protoPathElements>
+              <customProtoSourceRoot>${project.build.directory}/generated-sources/protobuf/custom</customProtoSourceRoot>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- OS-maven-plugin to detect platform classifier for protoc native executables -->
+      <plugin>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.6.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>detect</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Ensure protobuf generated sources are added to the compile source path -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>add-generated-sources</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/protobuf/java</source>
+                <source>${project.build.directory}/generated-sources/protobuf/grpc-java</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- protobuf plugin removed: gateway proxies HTTP to the existing Flask gateway so Java stubs are not required -->
+    </plugins>
   </build>
 
 </project>
