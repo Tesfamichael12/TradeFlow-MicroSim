@@ -1,142 +1,199 @@
 # TradeFlow-MicroSim
 
-Real-Time Stock Trading Simulator
+Real-Time Stock Trading Simulator on a polyglot microservices stack.
 
 ## Overview
 
-This project simulates real-time stock trading with a microservices architecture, including market data handling, high-frequency trading simulation, API gateway, and a web frontend. It uses Redis for caching, Prometheus for metrics, and Grafana for visualization.
+TradeFlow-MicroSim models an exchange workflow end to end:
 
-## Architecture
+- **Order ingestion & matching** via a high-performance C++20 gRPC service.
+- **High-frequency strategy simulation** with the WarpSpeed HFT engine.
+- **HTTP access** through a Java Spring Boot API gateway that bridges to gRPC.
+- **Reactive UI** built with Next.js for operators and traders.
+- **Operational plumbing** (Redis cache, Prometheus, Grafana) to round out the deployment footprint.
 
-- **Market Data Handler** (C++): Handles real-time market data feeds and order matching.
-- **HFT Simulator** (C++): Simulates high-frequency trading strategies.
-- **API Gateway** (Java): Provides RESTful API endpoints for communication between services and frontend.
-- **Frontend** (Next.js): Web interface for users to interact with the simulator.
-- **Infrastructure**:
-  - Redis: Caching layer.
-  - Prometheus: Metrics collection.
-  - Grafana: Metrics visualization.
+This repository focuses on the microservice-oriented implementation. A legacy single-binary prototype continues to live in `../Real-Time-Market-Data-Feed-Handler-and-Order-Matching-Engine/` for reference.
 
-## Getting Started
+## Component map
 
-1. Ensure Docker and Docker Compose are installed.
-2. Clone the repository.
-3. Run `docker-compose up` from the `deployment/` directory.
+| Component               | Language             | Path                              | Purpose                                                                 | Exposed port |
+| ----------------------- | -------------------- | --------------------------------- | ----------------------------------------------------------------------- | ------------ |
+| Order Matching Engine   | C++20, gRPC          | `services/order-matching-engine/` | Price/time priority order book with streaming updates                   | `50051`      |
+| WarpSpeed HFT Simulator | C++17, gRPC          | `services/hft-simulator/`         | Generates high-volume order/order-cancel flow and streams quotes/trades | `50052`      |
+| Market Data Handler     | C++                  | `services/market-data-handler/`   | Planned market data feed normalizer (currently scaffold)                | TBC          |
+| API Gateway             | Java 17, Spring Boot | `services/api-gateway/`           | REST façade that calls the C++ gRPC backend via generated stubs         | `8080`       |
+| Frontend                | Next.js 12, React 17 | `frontend/`                       | Dashboard and control panel for the simulator                           | `3000`       |
+| Redis                   | Docker               | `infrastructure/redis/`           | Shared cache and pub/sub backbone                                       | `6379`       |
+| Prometheus              | Docker               | `infrastructure/prometheus/`      | Metrics scraper (order-matching + gateway exporters wired)              | `9090`       |
+| Grafana                 | Docker               | `infrastructure/grafana/`         | Dashboards for simulator metrics                                        | `3001`       |
 
-## Services
+Related assets:
 
-### Market Data Handler
+- `deployment/docker-compose.yml` ties the services together. The compose file currently expects an `hft-simulator` service definition; add it (using `services/hft-simulator/Dockerfile`) or start the binary manually before bringing up the dependent services.
+- `services/order-matching-engine/proto/order_service.proto` is the canonical contract used across languages.
+- Python gRPC test clients live under `services/order-matching-engine/tests/integration/`.
 
-Located in `services/market-data-handler/`
+## Quick start (containerised)
 
-- Built with C++
-- Uses CMake for build system
+1. Install Docker and Docker Compose v2.
+1. (Optional but recommended) Build the HFT simulator image once:
 
-### HFT Simulator
-
-Located in `services/hft-simulator/`
-
-- Built with C++
-- Simulates trading algorithms
-
-### API Gateway
-
-Located in `services/api-gateway/`
-
-- Built with Java (Spring Boot assumed)
-- Handles API requests
-
-### Frontend
-
-Located in `frontend/`
-
-- Next.js application
-- Provides UI for trading simulation
-
-### Infrastructure
-
-Located in `infrastructure/`
-
-- Redis for caching
-- Prometheus for monitoring
-- Grafana for dashboards
-
-## Memory Leak Testing
-
-The system has been thoroughly tested for memory leaks using Valgrind under various stress conditions. The memory leak tests validate the robustness of the order-matching engine under high-frequency trading scenarios.
-
-### Test Results Summary
-
-| Test Type            | Status  | Memory Leaks | Peak Memory Usage | Test Duration |
-| -------------------- | ------- | ------------ | ----------------- | ------------- |
-| **Unit Tests**       | ✅ PASS | 0 bytes      | 2.1 MB            | 45 seconds    |
-| **Stress Test**      | ✅ PASS | 0 bytes      | 156.7 MB          | 2.3 minutes   |
-| **Integration Test** | ✅ PASS | 0 bytes      | 89.2 MB           | 1.8 minutes   |
-
-### Test Configuration
-
-- **Tool**: Valgrind memcheck v3.18.1
-- **Leak Check**: Full with track-origins
-- **Stress Test**: 10,000 orders across 4 threads
-- **Test Environment**: Ubuntu 22.04, 8-core CPU @ 4.6GHz, 32GB RAM
-
-### Detailed Results
-
-#### Unit Tests
-
-- **Orders Processed**: 1,000 basic operations
-- **Memory Allocations**: 2,847 allocations
-- **Peak Memory**: 2.1 MB
-- **Definitely Lost**: 0 bytes
-- **Indirectly Lost**: 0 bytes
-- **Possibly Lost**: 0 bytes
-- **Still Reachable**: 0 bytes
-
-#### Stress Test (High-Volume Scenario)
-
-- **Orders Processed**: 10,000 concurrent orders
-- **Threads**: 4 parallel threads
-- **Memory Allocations**: 45,231 allocations
-- **Peak Memory**: 156.7 MB
-- **Definitely Lost**: 0 bytes
-- **Indirectly Lost**: 0 bytes
-- **Possibly Lost**: 0 bytes
-- **Still Reachable**: 0 bytes
-
-#### Integration Test (gRPC Server)
-
-- **API Calls**: 500 gRPC requests
-- **Memory Allocations**: 12,456 allocations
-- **Peak Memory**: 89.2 MB
-- **Definitely Lost**: 0 bytes
-- **Indirectly Lost**: 0 bytes
-- **Possibly Lost**: 0 bytes
-- **Still Reachable**: 0 bytes
-
-### Performance Under Load
-
-The memory leak tests demonstrate excellent memory management characteristics:
-
-- **Zero Memory Leaks**: All tests passed with 0 bytes of memory leaks
-- **Predictable Memory Usage**: Linear memory growth with order volume
-- **Efficient Cleanup**: Proper deallocation of all temporary objects
-- **Thread Safety**: No memory corruption in multi-threaded scenarios
-
-### Running Memory Tests
-
-To run the memory leak tests:
-
-```bash
-# Run comprehensive memory leak testing
-./scripts/memory_test.sh
-
-# View detailed results
-cat services/order-matching-engine/out/memory_test_summary.md
+```sh
+docker build -f ../services/hft-simulator/Dockerfile -t tradeflow-hft-simulator ../services/hft-simulator
 ```
 
-## Development
+1. Define the `hft-simulator` service in `deployment/docker-compose.yml` (see notes above) or run the binary locally.
+1. From `deployment/`, launch the stack:
 
-Each service can be developed independently. Use Docker for containerization.
+```sh
+docker compose up --build
+```
+
+Endpoints to check once the stack is running:
+
+- API Gateway: <http://localhost:8080>
+- Frontend UI: <http://localhost:3000>
+- Prometheus UI: <http://localhost:9090>
+- Grafana: <http://localhost:3001> (default admin password `admin`).
+- Order Matching metrics endpoint: <http://localhost:9464/metrics> (text exposition).
+
+When developing locally without containers, read the service-specific sections below for build/run steps.
+
+## Service deep dive
+
+### Order Matching Engine (C++20)
+
+- Implements multi-symbol limit order books with price–time priority matching, trade logging, and gRPC streaming endpoints defined in `order_service.proto`.
+- Build & run:
+
+  ```sh
+  mkdir -p services/order-matching-engine/build
+  cmake -S services/order-matching-engine -B services/order-matching-engine/build -DCMAKE_BUILD_TYPE=Release
+  cmake --build services/order-matching-engine/build -j
+  ./services/order-matching-engine/build/order-matching-engine
+  ```
+
+- Unit tests & integration tests live under `services/order-matching-engine/tests/`. Use `ctest --output-on-failure` after configuring the build tree.
+- Memory-leak regression suite:
+
+  ```sh
+  ./scripts/memory_test.sh
+  cat services/order-matching-engine/out/memory_test_summary.md
+  ```
+
+  The harness runs unit, stress, and gRPC integration workloads under Valgrind and fails CI if _any_ bytes remain in use at exit.
+
+- Micro-benchmarks:
+
+  ```sh
+  ./scripts/run_bench.sh
+  ```
+
+  Results are emitted as JSON to `services/order-matching-engine/bench/results.json` and can be parsed with `scripts/parse_bench.py` for summaries.
+
+- Generated client stubs for Python (`order_service_pb2*.py`) are kept for integration tests; Java stubs are generated on the fly by the gateway build.
+
+#### Benchmark summary (Order Matching Engine)
+
+| Metric | Value |
+| --- | ---: |
+| p50 | 0.512468 µs |
+| p90 | 0.571549 µs |
+| p99 | 0.593002 µs |
+| p99.9 | 0.595148 µs |
+| mean | 0.523965 µs |
+| samples | 10 |
+
+Context:
+
+- host: `pop-os` Linux
+- date: `2025-03-25T08:21:45+03:00`
+- cpus: `8`
+
+### WarpSpeed HFT Simulator (C++17)
+
+- Provides a gRPC surface (`warpspeed.proto`) to submit/cancel orders and subscribe to market data from strategy bots.
+- `services/hft-simulator/src/grpc/server.cpp` hosts the server, backed by the asynchronous matching engine in `src/core/`.
+- Build & run:
+
+  ```sh
+  cmake -S services/hft-simulator -B services/hft-simulator/build
+  cmake --build services/hft-simulator/build -j
+  ./services/hft-simulator/build/warpspeed_server
+  ```
+
+- A lightweight gRPC client harness is included in the build tree (`grpc_client_test`) for smoke tests.
+- Docker image scaffolding is available at `services/hft-simulator/Dockerfile` for container deployment.
+
+### Market Data Handler (C++)
+
+- Currently a skeleton awaiting implementation. Its `main.cpp` is a placeholder and should be replaced with a real feed adapter that normalises ticks for downstream services.
+- Build tooling (CMake, Dockerfile) is in place so future work can focus solely on business logic.
+
+### API Gateway (Java Spring Boot)
+
+- Exposes REST/JSON endpoints and proxies calls to the C++ matching engine over gRPC by using generated Java stubs.
+- `pom.xml` wires the `protobuf-maven-plugin`; running `mvn clean compile` regenerates stubs from the shared proto files and keeps them under `target/generated-sources/` (ignored by Git).
+- Basic usage:
+
+  ```sh
+  cd services/api-gateway
+  mvn clean package
+  java -jar target/api-gateway-1.0.0.jar --orderengine.host=localhost --orderengine.port=50051
+  ```
+
+  The gateway exposes Prometheus metrics at <http://localhost:8080/actuator/prometheus> when running locally. Omit the `--orderengine.*` overrides when the service runs inside Docker Compose (defaults point to `order-matching-engine:50051`).
+
+### Frontend (Next.js)
+
+- Provides the simulator dashboard.
+- Dev workflow:
+
+  ```sh
+  cd frontend
+  npm install
+  npm run dev
+  ```
+
+- Production build: `npm run build && npm run start` (uses port 3000 by default).
+
+## Testing & quality gates
+
+- **Unit & integration tests**: Driven by CTest for the C++ services and JUnit (to be added) for the Java gateway.
+- **Memory regression**: `scripts/memory_test.sh` runs Valgrind against unit, stress, and integration workloads. Latest run (2025‑03‑25 on Ubuntu 22.04, 8c/32 GB) produced:
+
+  | Test Type        | Status  | Memory leaks | Peak RSS |
+  | ---------------- | ------- | ------------ | -------- |
+  | Unit Tests       | ✅ PASS | 0 bytes      | 2.1 MB   |
+  | Stress Test      | ✅ PASS | 0 bytes      | 156.7 MB |
+  | Integration Test | ✅ PASS | 0 bytes      | 89.2 MB  |
+
+  Full logs live under `services/order-matching-engine/out/`.
+
+- **Benchmarks**: `scripts/run_bench.sh` captures latency distributions for core matching paths. Use `scripts/parse_bench.py` to transform the JSON output into human-readable summaries.
+- **Static analysis**: Not yet automated. Clang-Tidy and cpplint hooks are recommended additions.
+
+## Observability stack
+
+- Prometheus (`infrastructure/prometheus/`) scrapes:
+  - `order-matching-engine:9464/metrics` – lightweight exporter baked into the C++ gRPC server with counters for RPC traffic, cancellations, trades, and streaming subscribers.
+  - `api-gateway:8080/actuator/prometheus` – Spring Boot Actuator + Micrometer exposes request timers and success/error counters for the REST façade.
+- Grafana (`infrastructure/grafana/`) is pre-provisioned with a Prometheus data source and a starter _Order Matching Engine Overview_ dashboard (`TradeFlow` folder) showing submit volumes, trade throughput, cancel outcomes, and gateway latency trends.
+- Redis (`infrastructure/redis/`) provides shared state. Docker Compose exposes the default port (`6379`) for local debugging.
+
+### Upcoming work
+
+- Add native exporters for the WarpSpeed HFT simulator and the market data handler once their business logic firms up.
+- Expand Grafana dashboards with order book depth visualisations and alerting once additional metrics land.
+
+## Development tips
+
+- Regenerate gRPC stubs for new proto changes before compiling dependants:
+  - `cmake --build services/order-matching-engine/build --target order_service_proto` (C++).
+  - `mvn generate-sources` (Java gateway).
+  - `python -m grpc_tools.protoc` (if Python clients need updating).
+- Keep generated artifacts out of Git: `.gitignore` already ignores Maven’s `target/` and the Java stub directory.
+- Use the Valgrind and benchmark scripts early when touching matching-engine internals—performance and leak regressions surface quickly under load.
 
 ## License
 
